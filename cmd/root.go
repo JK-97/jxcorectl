@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"jxcorectl/client"
 	"fmt"
+	"jxcorectl/client"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -16,7 +16,7 @@ var rootCmd = &cobra.Command{
 	Short: "A brief description of your application",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		client.Run()
+		client.Run(Version)
 	},
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
