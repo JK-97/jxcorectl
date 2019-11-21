@@ -1,0 +1,6 @@
+Package: REPLACE_PACKAGE_NAME
+Version: REPLACE_VERSION
+Maintainer: shenmingjie <shenmingjie@jiangxing.ai>
+Description: Jiangxing Core Client
+Homepage: https://github.com/JK-97/jxcorectl.git
+Architecture: REPLACE_ARCH
