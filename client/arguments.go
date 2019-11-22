@@ -8,11 +8,13 @@ import (
 var rpcCommands = []prompt.Suggest{
 	// {Text: "restart", Description: "shutdonw jxocre subprocess"},
 	{Text: "status", Description: "Print the logs for a container in a pod."},
-	{Text: "logs", Description: "start the program which in jxcore"},
-	{Text: "stop", Description: "start the program which in jxcore"},
-	{Text: "start", Description: "start the program in which jxcore"},
-	{Text: "pid", Description: "start the program in which jxcore"},
-	{Text: "shutdown", Description: "start the program in which jxcore"},
+	{Text: "tail", Description: "tail the process stderr or stdout"},
+	{Text: "stop", Description: "stop the program"},
+	{Text: "start", Description: "start the program"},
+	{Text: "pid", Description: "get pid by name"},
+	{Text: "shutdown", Description: "shutdown all processes include jxcored"},
+	{Text: "signal", Description: "start the program in which jxcore"},
+	{Text: "reload", Description: "start the program in which jxcore"},
 	// Custom command.
 
 }
@@ -59,7 +61,7 @@ func (c *customcompleter) argumentsCompleter(args []string) []prompt.Suggest {
 
 	firstword := args[0]
 	switch firstword {
-	case "status", "logs", "stop", "start", "pid", "shutdown":
+	case "status", "tail", "stop", "start", "pid", "shutdown":
 		secondword := args[1]
 		if len(args) == 2 {
 			return prompt.FilterHasPrefix(processTypes, secondword, true)
@@ -67,7 +69,7 @@ func (c *customcompleter) argumentsCompleter(args []string) []prompt.Suggest {
 		// thirdword := args[2]shutdown
 		if len(args) == 3 {
 			switch firstword {
-			case "logs":
+			case "tail":
 				return logLevel
 			}
 		}
