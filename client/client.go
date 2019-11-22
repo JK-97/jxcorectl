@@ -16,11 +16,13 @@ func Run(version string) {
 		"root",
 		"",
 	)
-
+	rpcc := e.createRpcClient()
 	defer debug.Teardown()
 	fmt.Printf("jxcorectl %s \n", version)
 	fmt.Println("Please use `exit` or `Ctrl-D` to exit this program.")
 	defer fmt.Println("Bye!")
+
+	e.status(rpcc, nil)
 	p := prompt.New(
 		e.Execute,
 		c.completer,
