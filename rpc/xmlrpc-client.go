@@ -27,7 +27,7 @@ type XmlRPCClient struct {
 type ProcessTailLog struct {
 	LogData  string `xml:"logdata" json:"logdata" `
 	Offset   int64  `xml:"offset" json:"offset"`
-	Overflow bool   `xml:"overflow"json:"overflow"`
+	Overflow bool   `xml:"overflow" json:"overflow"`
 }
 
 type ProcessLogReadInfo struct {
