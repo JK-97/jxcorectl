@@ -20,16 +20,6 @@ var rpcCommands = []prompt.Suggest{
 }
 
 //secondword
-var processTypes = []prompt.Suggest{
-	{Text: "jxserving"}, // valid only for federation apiservers
-	{Text: "db"},
-	{Text: "mq"},
-	{Text: "tsdb"},
-	{Text: "telegraf"},
-	{Text: "watchdog"},
-	{Text: "all"},
-	{Text: "test"},
-}
 
 var logLevel = []prompt.Suggest{
 	{Text: "stdout"}, // valid only for federation apiservers

@@ -147,6 +147,15 @@ func (x *RpcExector) status(rpcc *rpc.XmlRPCClient, processes []string) {
 	}
 }
 
+func (x *RpcExector) getAllProcessesName(rpcc *rpc.XmlRPCClient) (processList []string) {
+	if reply, err := rpcc.GetAllProcessInfo(); err == nil {
+		processList = x.getProcessInfo(&reply)
+	} else {
+		os.Exit(1)
+	}
+	return processList
+}
+
 // start or stop the processes
 // verb must be: start or stop
 func (x *RpcExector) startStopProcesses(rpcc *rpc.XmlRPCClient, verb string, processes []string) {
@@ -324,6 +333,17 @@ func (x *RpcExector) showProcessInfo(reply *rpc.AllProcessInfoReply, processesMa
 			fmt.Printf("%s%-33s%-10s%s%s\n", x.getANSIColor(pinfo.Statename), processName, pinfo.Statename, description, "\x1b[0m")
 		}
 	}
+}
+func (x *RpcExector) getProcessInfo(reply *rpc.AllProcessInfoReply) (processesList []string) {
+	for _, pinfo := range reply.Value {
+		description := pinfo.Description
+		if strings.ToLower(description) == "<string></string>" {
+			description = ""
+		}
+		processName := pinfo.GetFullName()
+		processesList = append(processesList, processName)
+	}
+	return processesList
 }
 
 func (x *RpcExector) inProcessMap(procInfo *types.ProcessInfo, processesMap map[string]bool) bool {

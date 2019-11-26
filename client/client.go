@@ -8,6 +8,8 @@ import (
 	"github.com/c-bata/go-prompt/completer"
 )
 
+var processTypes = []prompt.Suggest{}
+
 //启动client
 func Run(version string) {
 	c := NewCompleter()
@@ -18,11 +20,14 @@ func Run(version string) {
 	)
 	rpcc := e.createRpcClient()
 	defer debug.Teardown()
-	fmt.Printf("jxcorectl %s \n", version)
-	fmt.Println("Please use `exit` or `Ctrl-D` to exit this program.")
 	defer fmt.Println("Bye!")
 
 	e.status(rpcc, nil)
+	processNameList := e.getAllProcessesName(rpcc)
+	for _, processName := range processNameList {
+		processTypes = append(processTypes, prompt.Suggest{Text: processName})
+	}
+
 	p := prompt.New(
 		e.Execute,
 		c.completer,
