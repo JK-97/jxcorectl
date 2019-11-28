@@ -12,9 +12,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/ochinchina/supervisord/types"
-
 	"github.com/ochinchina/gorilla-xmlrpc/xml"
+	"github.com/ochinchina/supervisord/types"
 )
 
 type XmlRPCClient struct {
@@ -23,6 +22,18 @@ type XmlRPCClient struct {
 	password  string
 	timeout   time.Duration
 	verbose   bool
+}
+
+type ProcessTailLog struct {
+	LogData  string `xml:"logdata" json:"logdata" `
+	Offset   int64  `xml:"offset" json:"offset"`
+	Overflow bool   `xml:"overflow" json:"overflow"`
+}
+
+type ProcessLogReadInfo struct {
+	Name   string
+	Offset int
+	Length int
 }
 
 type VersionReply struct {
@@ -312,6 +323,50 @@ func (r *XmlRPCClient) GetProcessInfo(process string) (reply types.ProcessInfo, 
 	ins := struct{ Name string }{process}
 	result := struct{ Reply types.ProcessInfo }{}
 	r.post("supervisor.getProcessInfo", &ins, func(body io.ReadCloser, procError error) {
+		err = procError
+		if err == nil {
+			err = xml.DecodeClientResponse(body, &result)
+			if err == nil {
+				reply = result.Reply
+			} else if r.verbose {
+				fmt.Printf("Fail to decode to types.ProcessInfo\n")
+			}
+		}
+	})
+
+	return
+}
+
+func (r *XmlRPCClient) TailProcessStdoutLog(processLogReadInfo ProcessLogReadInfo) (reply ProcessTailLog, err error) {
+	ins := struct {
+		Name   string
+		Offset int
+		Length int
+	}{Name: processLogReadInfo.Name, Offset: processLogReadInfo.Offset, Length: processLogReadInfo.Length}
+	result := struct{ Reply ProcessTailLog }{}
+	r.post("supervisor.tailProcessStdoutLog", &ins, func(body io.ReadCloser, procError error) {
+		err = procError
+		if err == nil {
+			err = xml.DecodeClientResponse(body, &result)
+			if err == nil {
+				reply = result.Reply
+			} else if r.verbose {
+				fmt.Printf("Fail to decode to types.ProcessInfo\n")
+			}
+		}
+	})
+
+	return
+}
+
+func (r *XmlRPCClient) TailProcessStderrLog(processLogReadInfo ProcessLogReadInfo) (reply ProcessTailLog, err error) {
+	ins := struct {
+		Name   string
+		Offset int
+		Length int
+	}{Name: processLogReadInfo.Name, Offset: processLogReadInfo.Offset, Length: processLogReadInfo.Length}
+	result := struct{ Reply ProcessTailLog }{}
+	r.post("supervisor.tailProcessStderrLog", &ins, func(body io.ReadCloser, procError error) {
 		err = procError
 		if err == nil {
 			err = xml.DecodeClientResponse(body, &result)

@@ -2,12 +2,12 @@ package client
 
 import (
 	"fmt"
+	"jxcorectl/rpc"
 	"os"
 	"strings"
 
 	"github.com/jessevdk/go-flags"
 	"github.com/ochinchina/supervisord/types"
-	"github.com/ochinchina/supervisord/xmlrpcclient"
 )
 
 type RpcExector struct {
@@ -41,6 +41,9 @@ type PidCommand struct {
 type SignalCommand struct {
 }
 
+type TailCommand struct {
+}
+
 var rpcExector RpcExector
 var statusCommand StatusCommand
 var startCommand StartCommand
@@ -50,6 +53,7 @@ var shutdownCommand ShutdownCommand
 var reloadCommand ReloadCommand
 var pidCommand PidCommand
 var signalCommand SignalCommand
+var tailCommand TailCommand
 
 func NewRpcExcutior(serveurl, user, password string) *RpcExector {
 	return &RpcExector{
@@ -70,8 +74,8 @@ func (x *RpcExector) getPassword() string {
 	return x.Password
 }
 
-func (x *RpcExector) createRpcClient() *xmlrpcclient.XmlRPCClient {
-	rpcc := xmlrpcclient.NewXmlRPCClient(x.getServerUrl(), x.Verbose)
+func (x *RpcExector) createRpcClient() *rpc.XmlRPCClient {
+	rpcc := rpc.NewXmlRPCClient(x.getServerUrl(), x.Verbose)
 	rpcc.SetUser(x.getUser())
 	rpcc.SetPassword(x.getPassword())
 	return rpcc
@@ -103,14 +107,19 @@ func (x *RpcExector) Execute(s string) {
 		x.shutdown(rpcc)
 	case "reload":
 		x.reload(rpcc)
-	// case "signal":
-	// 	sig_name, processes := args[1], args[s2:]
-	// 	x.signal(rpcc, sig_name, processes)
-	case "logs":
-		if length != 3 {
-
-		} else {
-			fmt.Println("unknown program")
+	case "signal":
+		sig_name, processes := args[1], args[2:]
+		x.signal(rpcc, sig_name, processes)
+	case "tail":
+		if length == 3 {
+			thirdword := args[2]
+			// secondword := args[1]
+			switch thirdword {
+			case "stderr":
+				x.tailProcessStderrLog(rpcc, args[1:])
+			case "stdout":
+				x.tailProcessStdoutLog(rpcc, args[1:])
+			}
 		}
 	case "pid":
 		if length == 2 {
@@ -126,7 +135,7 @@ func (x *RpcExector) Execute(s string) {
 }
 
 // get the status of processes
-func (x *RpcExector) status(rpcc *xmlrpcclient.XmlRPCClient, processes []string) {
+func (x *RpcExector) status(rpcc *rpc.XmlRPCClient, processes []string) {
 	processesMap := make(map[string]bool)
 	for _, process := range processes {
 		processesMap[process] = true
@@ -138,9 +147,18 @@ func (x *RpcExector) status(rpcc *xmlrpcclient.XmlRPCClient, processes []string)
 	}
 }
 
+func (x *RpcExector) getAllProcessesName(rpcc *rpc.XmlRPCClient) (processList []string) {
+	if reply, err := rpcc.GetAllProcessInfo(); err == nil {
+		processList = x.getProcessInfo(&reply)
+	} else {
+		os.Exit(1)
+	}
+	return processList
+}
+
 // start or stop the processes
 // verb must be: start or stop
-func (x *RpcExector) startStopProcesses(rpcc *xmlrpcclient.XmlRPCClient, verb string, processes []string) {
+func (x *RpcExector) startStopProcesses(rpcc *rpc.XmlRPCClient, verb string, processes []string) {
 	state := map[string]string{
 		"start": "started",
 		"stop":  "stopped",
@@ -148,7 +166,7 @@ func (x *RpcExector) startStopProcesses(rpcc *xmlrpcclient.XmlRPCClient, verb st
 	x._startStopProcesses(rpcc, verb, processes, state[verb], true)
 }
 
-func (x *RpcExector) _startStopProcesses(rpcc *xmlrpcclient.XmlRPCClient, verb string, processes []string, state string, showProcessInfo bool) {
+func (x *RpcExector) _startStopProcesses(rpcc *rpc.XmlRPCClient, verb string, processes []string, state string, showProcessInfo bool) {
 	if len(processes) <= 0 {
 		fmt.Printf("Please specify process for %s\n", verb)
 	}
@@ -179,13 +197,13 @@ func (x *RpcExector) _startStopProcesses(rpcc *xmlrpcclient.XmlRPCClient, verb s
 	}
 }
 
-func (x *RpcExector) restartProcesses(rpcc *xmlrpcclient.XmlRPCClient, processes []string) {
+func (x *RpcExector) restartProcesses(rpcc *rpc.XmlRPCClient, processes []string) {
 	x._startStopProcesses(rpcc, "stop", processes, "stopped", false)
 	x._startStopProcesses(rpcc, "start", processes, "restarted", true)
 }
 
 // shutdown the supervisord
-func (x *RpcExector) shutdown(rpcc *xmlrpcclient.XmlRPCClient) {
+func (x *RpcExector) shutdown(rpcc *rpc.XmlRPCClient) {
 	if reply, err := rpcc.Shutdown(); err == nil {
 		if reply.Value {
 			fmt.Printf("Shut Down\n")
@@ -198,7 +216,7 @@ func (x *RpcExector) shutdown(rpcc *xmlrpcclient.XmlRPCClient) {
 }
 
 // reload all the programs in the supervisord
-func (x *RpcExector) reload(rpcc *xmlrpcclient.XmlRPCClient) {
+func (x *RpcExector) reload(rpcc *rpc.XmlRPCClient) {
 	if reply, err := rpcc.ReloadConfig(); err == nil {
 
 		if len(reply.AddedGroup) > 0 {
@@ -216,7 +234,7 @@ func (x *RpcExector) reload(rpcc *xmlrpcclient.XmlRPCClient) {
 }
 
 // send signal to one or more processes
-func (x *RpcExector) signal(rpcc *xmlrpcclient.XmlRPCClient, sig_name string, processes []string) {
+func (x *RpcExector) signal(rpcc *rpc.XmlRPCClient, sig_name string, processes []string) {
 	for _, process := range processes {
 		if process == "all" {
 			reply, err := rpcc.SignalAll(process)
@@ -239,7 +257,7 @@ func (x *RpcExector) signal(rpcc *xmlrpcclient.XmlRPCClient, sig_name string, pr
 }
 
 // get the pid of running program
-func (x *RpcExector) getPid(rpcc *xmlrpcclient.XmlRPCClient, process string) {
+func (x *RpcExector) getPid(rpcc *rpc.XmlRPCClient, process string) {
 	procInfo, err := rpcc.GetProcessInfo(process)
 	if err != nil {
 		fmt.Printf("program '%s' not found\n", process)
@@ -260,7 +278,48 @@ func (x *RpcExector) showGroupName() bool {
 	return val == "yes" || val == "true" || val == "y" || val == "t" || val == "1"
 }
 
-func (x *RpcExector) showProcessInfo(reply *xmlrpcclient.AllProcessInfoReply, processesMap map[string]bool) {
+// tail the process stderr log
+func (x *RpcExector) tailProcessStderrLog(rpcc *rpc.XmlRPCClient, args []string) {
+	process := args[0]
+
+	processLogReadInfo := rpc.ProcessLogReadInfo{
+		Name:   process,
+		Offset: 0,
+		Length: 100,
+	}
+	if reply, err := rpcc.TailProcessStderrLog(processLogReadInfo); err == nil {
+		x.showLogFlow(&reply)
+	} else {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+}
+
+// tail the process stdout log
+func (x *RpcExector) tailProcessStdoutLog(rpcc *rpc.XmlRPCClient, args []string) {
+	process := args[0]
+
+	processLogReadInfo := rpc.ProcessLogReadInfo{
+		Name:   process,
+		Offset: 0,
+		Length: 100,
+	}
+	if reply, err := rpcc.TailProcessStdoutLog(processLogReadInfo); err == nil {
+		x.showLogFlow(&reply)
+	} else {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+func (x *RpcExector) showLogFlow(processTailLog *rpc.ProcessTailLog) {
+	if processTailLog.LogData != "" {
+		fmt.Println(processTailLog.LogData)
+	}
+
+}
+func (x *RpcExector) showProcessInfo(reply *rpc.AllProcessInfoReply, processesMap map[string]bool) {
 	for _, pinfo := range reply.Value {
 		description := pinfo.Description
 		if strings.ToLower(description) == "<string></string>" {
@@ -274,6 +333,17 @@ func (x *RpcExector) showProcessInfo(reply *xmlrpcclient.AllProcessInfoReply, pr
 			fmt.Printf("%s%-33s%-10s%s%s\n", x.getANSIColor(pinfo.Statename), processName, pinfo.Statename, description, "\x1b[0m")
 		}
 	}
+}
+func (x *RpcExector) getProcessInfo(reply *rpc.AllProcessInfoReply) (processesList []string) {
+	for _, pinfo := range reply.Value {
+		description := pinfo.Description
+		if strings.ToLower(description) == "<string></string>" {
+			description = ""
+		}
+		processName := pinfo.GetFullName()
+		processesList = append(processesList, processName)
+	}
+	return processesList
 }
 
 func (x *RpcExector) inProcessMap(procInfo *types.ProcessInfo, processesMap map[string]bool) bool {
