@@ -2,7 +2,6 @@ package client
 
 import (
 	"fmt"
-	"jxcorectl/internal/debug"
 
 	"github.com/c-bata/go-prompt"
 	"github.com/c-bata/go-prompt/completer"
@@ -19,7 +18,6 @@ func Run(version string) {
 		"",
 	)
 	rpcc := e.createRpcClient()
-	defer debug.Teardown()
 	defer fmt.Println("Bye!")
 
 	e.status(rpcc, nil)

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"jxcorectl/rpc"
 	"os"
+	"os/exec"
 	"strings"
 
-	"github.com/jessevdk/go-flags"
 	"github.com/ochinchina/supervisord/types"
 )
 
@@ -43,17 +43,6 @@ type SignalCommand struct {
 
 type TailCommand struct {
 }
-
-var rpcExector RpcExector
-var statusCommand StatusCommand
-var startCommand StartCommand
-var stopCommand StopCommand
-var restartCommand RestartCommand
-var shutdownCommand ShutdownCommand
-var reloadCommand ReloadCommand
-var pidCommand PidCommand
-var signalCommand SignalCommand
-var tailCommand TailCommand
 
 func NewRpcExcutior(serveurl, user, password string) *RpcExector {
 	return &RpcExector{
@@ -103,22 +92,21 @@ func (x *RpcExector) Execute(s string) {
 			x.startStopProcesses(rpcc, firstword, args[1:])
 			return
 		}
-	case "shutdown":
+	case "reset":
 		x.shutdown(rpcc)
-	case "reload":
-		x.reload(rpcc)
+	case "restart":
+		x.restartProcesses(rpcc, args[1:])
+	// case "reload":
+	// 	x.reload(rpcc)
 	case "signal":
 		sig_name, processes := args[1], args[2:]
 		x.signal(rpcc, sig_name, processes)
 	case "tail":
 		if length == 3 {
 			thirdword := args[2]
-			// secondword := args[1]
 			switch thirdword {
-			case "stderr":
-				x.tailProcessStderrLog(rpcc, args[1:])
-			case "stdout":
-				x.tailProcessStdoutLog(rpcc, args[1:])
+			case "stderr", "stdout":
+				tailProcessLog(args[1:])
 			}
 		}
 	case "pid":
@@ -126,12 +114,19 @@ func (x *RpcExector) Execute(s string) {
 			x.getPid(rpcc, args[1])
 			return
 		}
+	case "log":
+		cmd := exec.Command("tail", "-f", "/edge/logs/jxcore.log")
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			fmt.Printf("Got error: %s\n", err.Error())
+		}
+	case "help":
 
 	default:
 		fmt.Println("unknown command")
 	}
-
-	return
 }
 
 // get the status of processes
@@ -278,39 +273,24 @@ func (x *RpcExector) showGroupName() bool {
 	return val == "yes" || val == "true" || val == "y" || val == "t" || val == "1"
 }
 
-// tail the process stderr log
-func (x *RpcExector) tailProcessStderrLog(rpcc *rpc.XmlRPCClient, args []string) {
-	process := args[0]
-
-	processLogReadInfo := rpc.ProcessLogReadInfo{
-		Name:   process,
-		Offset: 0,
-		Length: 100,
-	}
-	if reply, err := rpcc.TailProcessStderrLog(processLogReadInfo); err == nil {
-		x.showLogFlow(&reply)
-	} else {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-}
-
 // tail the process stdout log
-func (x *RpcExector) tailProcessStdoutLog(rpcc *rpc.XmlRPCClient, args []string) {
+func tailProcessLog(args []string) {
 	process := args[0]
-
-	processLogReadInfo := rpc.ProcessLogReadInfo{
-		Name:   process,
-		Offset: 0,
-		Length: 100,
+	if strings.Contains(args[0], ":") {
+		process = strings.Split(args[0], ":")[0]
 	}
-	if reply, err := rpcc.TailProcessStdoutLog(processLogReadInfo); err == nil {
-		x.showLogFlow(&reply)
-	} else {
-		fmt.Println(err)
-		os.Exit(1)
+	logLevel := "stderr"
+	if len(args) == 2 {
+		logLevel = args[1]
 	}
+	cmd := exec.Command("tail", "-f", "/edge/logs/"+process+"_"+logLevel+".log.0")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("Got error: %s\n", err.Error())
+	}
+	return
 }
 
 func (x *RpcExector) showLogFlow(processTailLog *rpc.ProcessTailLog) {
@@ -379,86 +359,4 @@ func (x *RpcExector) getANSIColor(statename string) string {
 		// yellow
 		return "\x1b[1;33m"
 	}
-}
-
-func (sc *StatusCommand) Execute(args []string) error {
-	rpcExector.status(rpcExector.createRpcClient(), args)
-	return nil
-}
-
-func (sc *StartCommand) Execute(args []string) error {
-	rpcExector.startStopProcesses(rpcExector.createRpcClient(), "start", args)
-	return nil
-}
-
-func (sc *StopCommand) Execute(args []string) error {
-	rpcExector.startStopProcesses(rpcExector.createRpcClient(), "stop", args)
-	return nil
-}
-
-func (rc *RestartCommand) Execute(args []string) error {
-	rpcExector.restartProcesses(rpcExector.createRpcClient(), args)
-	return nil
-}
-
-func (sc *ShutdownCommand) Execute(args []string) error {
-	rpcExector.shutdown(rpcExector.createRpcClient())
-	return nil
-}
-
-func (rc *ReloadCommand) Execute(args []string) error {
-	rpcExector.reload(rpcExector.createRpcClient())
-	return nil
-}
-
-func (rc *SignalCommand) Execute(args []string) error {
-	sig_name, processes := args[0], args[1:]
-	rpcExector.signal(rpcExector.createRpcClient(), sig_name, processes)
-	return nil
-}
-
-func (pc *PidCommand) Execute(args []string) error {
-	rpcExector.getPid(rpcExector.createRpcClient(), args[0])
-	return nil
-}
-
-func init() {
-	parser := flags.NewParser(nil, flags.Default & ^flags.PrintErrors)
-	ctlCmd, _ := parser.AddCommand("ctl",
-		"Control a running daemon",
-		"The ctl subcommand resembles supervisorctl command of original daemon.",
-		&rpcExector)
-	ctlCmd.AddCommand("status",
-		"show program status",
-		"show all or some program status",
-		&statusCommand)
-	ctlCmd.AddCommand("start",
-		"start programs",
-		"start one or more programs",
-		&startCommand)
-	ctlCmd.AddCommand("stop",
-		"stop programs",
-		"stop one or more programs",
-		&stopCommand)
-	ctlCmd.AddCommand("restart",
-		"restart programs",
-		"restart one or more programs",
-		&restartCommand)
-	ctlCmd.AddCommand("shutdown",
-		"shutdown supervisord",
-		"shutdown supervisord",
-		&shutdownCommand)
-	ctlCmd.AddCommand("reload",
-		"reload the programs",
-		"reload the programs",
-		&reloadCommand)
-	ctlCmd.AddCommand("signal",
-		"send signal to program",
-		"send signal to program",
-		&signalCommand)
-	ctlCmd.AddCommand("pid",
-		"get the pid of specified program",
-		"get the pid of specified program",
-		&pidCommand)
-
 }
