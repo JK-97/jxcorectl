@@ -5,7 +5,6 @@ go 1.13
 require (
 	github.com/c-bata/go-prompt v0.2.3
 	github.com/gorilla/rpc v1.2.0 // indirect
-	github.com/jessevdk/go-flags v1.4.0
 	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/mattn/go-runewidth v0.0.6 // indirect
 	github.com/mattn/go-tty v0.0.0-20191112051231-74040eebce08 // indirect

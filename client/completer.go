@@ -1,9 +1,8 @@
 package client
 
 import (
-	"strings"
-
 	"github.com/c-bata/go-prompt"
+	"strings"
 )
 
 type customcompleter struct {
@@ -14,14 +13,11 @@ func NewCompleter() *customcompleter {
 	return &customcompleter{}
 }
 
-// 用于补全的借口
+// 用于补全的接口
 func (c *customcompleter) completer(d prompt.Document) []prompt.Suggest {
 	if d.TextBeforeCursor() == "" {
 		return rpcCommands
 	}
 	args := strings.Split(d.TextBeforeCursor(), " ")
-	_ = d.GetWordBeforeCursor()
-	// If word before the cursor starts with "-", returns CLI flag options.
-
-	return c.argumentsCompleter(args)
+	return c.argumentsCompleter(args, d)
 }
